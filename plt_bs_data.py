@@ -89,6 +89,11 @@ indicator_list = ['销售毛利率','销售费用/营业总收入','管理费用
 '归属母公司股东的净利润','购建固定无形长期资产支付现金','销售商品劳务收到现金'] #去掉了会计年度和利息支出
 
 stockDF = pd.read_excel("C:/Users/chenchen/Desktop/coalStock_adj.xls") #把excel中的数据再读出来
+date_list = []
+for i in range(9):
+	date_list.append(dt.datetime(2007+i,1,1))
+
+cost_indicator_list = ['销售毛利率','销售费用/营业总收入','管理费用/营业总收入','财务费用/营业总收入']
 
 #del stockDF['利息支出'] 利息支出项均为空值，所以删除
 
@@ -104,18 +109,12 @@ stockDF = pd.read_excel("C:/Users/chenchen/Desktop/coalStock_adj.xls") #把excel
 # stockDF = stockDF[stockDF['股票代码'].map(lambda x : False if x in nan_stock_list else True)] #处理后的DF,没必要这么复杂，直接用isin即可
 # stockDF.to_excel("C:/Users/chenchen/Desktop/coalStock_adj.xls")
 
-date_list = []
-for i in range(9):
-	date_list.append(dt.datetime(2007+i,1,1))
 
 
 
-cost_indicator_list = ['销售毛利率','销售费用/营业总收入','管理费用/营业总收入','财务费用/营业总收入']
-
+#1. 第一个图：把所有数据都画成散点，新集标红突出
 fig = figure()
-
-#第一个图：把所有数据都画成散点，新集标红突出
-for i,indicator in enumerate(cost_indicator_list):
+for i,indicator in enumerate(cost_indicator_list): #注意：其实使用groupby就能完成很多初步处理了，只不过比较粗糙
 	ax = fig.add_subplot(2,2,i+1)
 	for stock in stock_list:		
 		tmp_data = stockDF[stockDF['股票代码'] == stock][indicator]
@@ -139,30 +138,48 @@ for i,indicator in enumerate(cost_indicator_list):
 	ax.set_ylabel(r"%")
 	ax.set_title(indicator)
 
-#第二个图：所有的提琴+新集的散点
+#2. 第二个图：所有的提琴+新集的散点
+stockDF['会计年度'] = stockDF['会计年度'].map(lambda x:x.year)#先尝试了一个，时间改成年度
+
 fig = figure()
 for i,indicator in enumerate(cost_indicator_list):
 	ax = fig.add_subplot(2,2,i+1)
-	#violin_list = [list(stockDF[stockDF['股票代码'] == stock][indicator]) for stock in stock_list]
-	#violinDF = 	pd.DataFrame(violin_list,index = stock_list,columns = date_list)
-	tmp_data = stockDF[stockDF['股票代码'] == '601918.SH'][indicator]
-	gt = ax.scatter(date_list,list(tmp_data),color = 'r',label ='国投新集')
+	# violin_list = [list(stockDF[stockDF['股票代码'] == stock][indicator]) for stock in stock_list]
+	# violinDF = pd.DataFrame(violin_list,index = stock_list,columns = date_list)
+	# ax.violinplot(violinDF.values,showmeans=False,showmedians=True)
+	# sns.lmplot(x = '会计年度', y = indicator, data=tmp_data, fit_reg=False, dropna=True,hue="z",scatter_kws={"marker": "D", "s": 100})
+	# plt.setp(ax, xticks=[y+1 for y in range(len(date_list))],xticklabels=date_list)
+	
+	tmp_data = stockDF[stockDF['股票代码'] == '601918.SH'][indicator]	
+	gt = ax.plot(list(tmp_data),color = 'r',label ='国投新集')
 	ax.legend(loc=1)
-	sns.violinplot(x = '会计年度', y = indicator, data = stockDF)		
+
+	sns.violinplot(x = '会计年度', y = indicator, data = stockDF)
+	ax.set_ylabel(r"")
+	ax.set_xlabel(r"") #尝试学习如何调整图与画图区域之间的空隙距离大小
+	ax.set_title(indicator+r"%",fontsize = 11, color = "b") #注意，有些字体并不是所有字号都能用，比如雅黑就不能用10，多试几次
+
 	
+
+#3. 下面针对所有的指标。每个指标生成一个提琴图并保存
+stockDF['会计年度'] = stockDF['会计年度'].map(lambda x:x.year)#先尝试了一个，时间改成年度
+
+for i,indicator in enumerate(indicator_list):
+	fig = figure()
+	ax = fig.add_subplot(111)
 	
-	years = mdates.YearLocator()
-	ax.xaxis.set_major_locator(years)#设置x轴间隔为年
+	tmp_data = stockDF[stockDF['股票代码'] == '601918.SH'][indicator]	
+	gt = ax.plot(list(tmp_data),color = 'r',label ='国投新集')
+	ax.legend(loc=1)
 
-	fmt = mdates.DateFormatter('%Y')
-	ax.xaxis.set_major_formatter(fmt)#设置x轴刻度格式为2015这样（只显示Y年）
+	sns.violinplot(x = '会计年度', y = indicator, data = stockDF)
+	ax.set_ylabel(r"")
+	ax.set_xlabel(r"") #尝试学习如何调整图与画图区域之间的空隙距离大小
+	ax.set_title(indicator+r"%",fontsize = 11, color = "b") #注意，有些字体并不是所有字号都能用，比如雅黑就不能用10，多试几次
 
-	ax.set_xlabel(r"年", fontsize=15, color = "r")
-	ax.set_ylabel(r"%")
-	ax.set_title(indicator)
-
-
-
+	pic_name = "C:/Users/chenchen/Desktop/ViolinInds/"+i+".png"
+	fig.savefig(pic_name)
+	
 
 fig = figure()
 ax = fig.add_subplot(111)
