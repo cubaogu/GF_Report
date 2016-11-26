@@ -16,7 +16,7 @@ stock_list_origin = ['000968.SZ','600546.SH','601918.SH','600408.SH','600397.SH'
 '600348.SH','900948.SH','600157.SH','600792.SH','600121.SH','601088.SH','601898.SH']
 
 # stock_list = []
-# profit_down_degree = [] #13年归母净利润相对于前两年的降幅
+# profit_down_degree = [] # 计算13年归母净利润相对于前两年的降幅
 # for stock in stock_list_origin:
 # 	qq = []
 # 	for i in range(2011,2014):
@@ -25,6 +25,7 @@ stock_list_origin = ['000968.SZ','600546.SH','601918.SH','600408.SH','600397.SH'
 # 	if sum([1 if x < 0 else 0 for x in qq ]) == 0: #只考虑2011-2013这三年归母净利润均为正的公司
 # 		stock_list.append(stock)
 # 		profit_down_degree.append(qq[2]/(qq[0]+qq[1]))
+
 
 
 w.start()
@@ -59,6 +60,7 @@ stockDF.to_excel("C:/Users/chenchen/Desktop/coalStock.xls")
 
 ###以上是原始数据处理，如果后续处理进来之后需要先读取数据和各种变量
 import pandas as pd
+import numpy as np
 import seaborn as sns
 import matplotlib.pyplot as plt
 
@@ -86,9 +88,25 @@ indicator_list = ['销售毛利率','销售费用/营业总收入','管理费用
 '销售净利率','资产负债率','流动比率','速动比率','应收账款周转率','固定资产周转率','存货周转率','总资产周转率',
 'Z值','带息债务','营运资本','资产总计','负债合计','营业总收入','营业收入','销售费用','管理费用',
 '财务费用','营业总成本','营业成本','经营现金流净额','投资现金流净额','现金及等价物净增加额','净利润',
-'归属母公司股东的净利润','购建固定无形长期资产支付现金','销售商品劳务收到现金'] #去掉了会计年度和利息支出
+'归属母公司股东的净利润','购建固定无形长期资产支付现金','销售商品劳务收到现金','固定资产','在建工程'] #去掉了会计年度和利息支出
 
 stockDF = pd.read_excel("C:/Users/chenchen/Desktop/coalStock_adj.xls") #把excel中的数据再读出来
+
+stockDF['会计年度'] = stockDF['会计年度'].map(lambda x:x.year)#先尝试了一个，时间改成年度，即从datetime类型改成整数类型
+
+#此处是增加固定资产和在建工程指标的，再重新存储下
+# w.start()
+# all_origin_data = []
+# for stock in stock_list:
+# 	for i in range(2007,2016):
+# 		td = w.wss(stock, "const_in_prog","rptDate=%s1231;rptType=1"%i).Data #fix_assets
+# 		all_origin_data.append(td[0][0])
+# stockDF['在建工程'] = all_origin_data #固定资产
+# w.stop()
+
+# stockDF.to_excel("C:/Users/chenchen/Desktop/coalStock_adj.xls")
+
+
 date_list = []
 for i in range(9):
 	date_list.append(dt.datetime(2007+i,1,1))
@@ -101,7 +119,7 @@ cost_indicator_list = ['销售毛利率','销售费用/营业总收入','管理�
 
 # for stock in stock_list_origin:		
 # 		single_stock_DF = stockDF[stockDF['股票代码'] == stock]
-# 		if single_stock_DF.isnull().any().any() == True:
+# 		if single_stock_DF.isnull().any().any() == True: #此处也可以考虑用groupby筛选
 # 			nan_stock_list.append(stock)
 
 # stock_list = [x for x in stock_list_origin if x not in nan_stock_list] #最终无空值的票的list
@@ -139,7 +157,7 @@ for i,indicator in enumerate(cost_indicator_list): #注意：其实使用groupby
 	ax.set_title(indicator)
 
 #2. 第二个图：所有的提琴+新集的散点
-stockDF['会计年度'] = stockDF['会计年度'].map(lambda x:x.year)#先尝试了一个，时间改成年度
+stockDF['会计年度'] = stockDF['会计年度'].map(lambda x:x.year)#先尝试了一个，时间改成年度，即从datetime类型改成整数类型
 
 fig = figure()
 for i,indicator in enumerate(cost_indicator_list):
@@ -164,22 +182,71 @@ for i,indicator in enumerate(cost_indicator_list):
 #3. 下面针对所有的指标。每个指标生成一个提琴图并保存
 stockDF['会计年度'] = stockDF['会计年度'].map(lambda x:x.year)#先尝试了一个，时间改成年度
 
-for i,indicator in enumerate(indicator_list):
+t_indicator_list = ['固定资产'] #购固现金流占比']
+for i,indicator in enumerate(t_indicator_list):
 	fig = figure()
 	ax = fig.add_subplot(111)
 	
-	tmp_data = stockDF[stockDF['股票代码'] == '601918.SH'][indicator]	
-	gt = ax.plot(list(tmp_data),color = 'r',label ='国投新集')
+	tmp_data = stockDF[stockDF['股票代码'] == '601918.SH'][indicator] #/10**8需要除以亿的时候	
+	gt = ax.plot(list(tmp_data),'ro-',label ='国投新集')
 	ax.legend(loc=1)
 
-	sns.violinplot(x = '会计年度', y = indicator, data = stockDF)
-	ax.set_ylabel(r"")
-	ax.set_xlabel(r"") #尝试学习如何调整图与画图区域之间的空隙距离大小
-	ax.set_title(indicator+r"%",fontsize = 11, color = "b") #注意，有些字体并不是所有字号都能用，比如雅黑就不能用10，多试几次
+	# tmp_stockDF = stockDF
+	# tmp_stockDF[indicator] = tmp_stockDF[indicator]/10**8 #需要除以亿的时候	，下面用tmp_stockDF
 
-	pic_name = "C:/Users/chenchen/Desktop/ViolinInds/"+i+".png"
+	sns.violinplot(x = '会计年度', y = indicator, data = stockDF,cut = 0, inner="quartile")
+	# hue="sex",scale="count",inner="quartile")hue可以用来再制定分类比较,可以指定ax来画否则默认当前ax，返回值也是一个ax类型
+	ax.set_ylabel(r"") #设置坐标轴标签，可以加"亿"或者"%"
+	ax.set_xlabel(r"") #尝试学习如何调整图与画图区域之间的空隙距离大小
+	ax.set_title(indicator,fontsize = 15, color = "b") #注意，有些字体并不是所有字号都能用，比如雅黑就不能用10，多试几次
+
+	pic_name = "C:/Users/chenchen/Desktop/ViolinInds/%s.png"%i
 	fig.savefig(pic_name)
-	
+
+#4. 构造一些新的指标,比如单独画一下有息债务的增长量
+stockDF['购固现金流占比'] = stockDF['购建固定无形长期资产支付现金']/stockDF['资产总计']
+stockDF['有息债务率'] = stockDF['带息债务']/stockDF['资产总计']
+stockDF['有息债务增量'] = stockDF['带息债务'].diff()
+stockDF['有息债务增率'] = stockDF['有息债务增量']/stockDF['带息债务']
+
+stockDF['过去两年平均净利'] = (stockDF['净利润'].shift(1) + stockDF['净利润'].shift(2))/2
+stockDF['净利相对两年平均增幅'] = (stockDF['净利润']-stockDF['过去两年平均净利'])/stockDF['过去两年平均净利']
+
+
+
+fig = figure()#此处专门画一下有息债务增率，首先剔除2007年，其次把为Nan和inf(从0增长的)都剔除掉
+ax = fig.add_subplot(111)
+
+indicator = '净利相对两年平均增幅'
+tmp_data = stockDF[(stockDF['会计年度'] != 2007) & (stockDF['会计年度'] != 2008)& (stockDF['股票代码'] == '601918.SH')][indicator]	
+gt = ax.plot(list(tmp_data),color = 'r',label ='国投新集')
+ax.legend(loc=1)
+sns.violinplot(x = '会计年度', y = indicator, data = stockDF[(stockDF['会计年度'] != 2007) & (stockDF['会计年度'] != 2008) & (np.isnan(stockDF[indicator]) == False) & (np.isinf(stockDF[indicator]) == False)],cut = 0, inner="quartile")
+
+
+
+#!!!这一段为了找出2011年和2012年净利均不为负的股票代码
+# tt = stockDF[stockDF['会计年度'] == 2011][['股票代码','净利润']]
+
+# tt[tt['净利润']<0].股票代码 # 600408.SH5      000968.SZ 000723.SZ 600792.SH
+
+# neg1112_list = ['600408.SH','000968.SZ', '000723.SZ','600792.SH']
+# non_neg_list = [x for x in stock_list if x not in neg1112_list]
+
+# profit_list = []
+
+# for x in non_neg_list:
+# 	single_profit = []
+# 	for i in range(2011,2014):
+# 		tt = stockDF[(stockDF['会计年度']== i) & (stockDF['股票代码'] == x)]['归属母公司股东的净利润']
+# 		single_profit.append(tt.values[0])
+# 	profit_list.append(single_profit)
+
+# profitDF = pd.DataFrame(profit_list,index = non_neg_list, columns=list(range(2011,2014)))
+
+# profitDF.to_excel("C:/Users/chenchen/Desktop/profit2011to2013.xls")
+
+
 
 fig = figure()
 ax = fig.add_subplot(111)
