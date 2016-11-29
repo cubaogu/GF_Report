@@ -79,23 +79,18 @@ sns.set_context("talk")#这一部分是为了保证在画图时正常显示中�
 stock_list = ['000968.SZ','601918.SH','600408.SH','600397.SH','601011.SH','601001.SH','601101.SH',
  '600971.SH','000937.SZ','600997.SH','600123.SH','601699.SH',	 '002128.SZ',	 '600395.SH',
  '601666.SH',	 '000780.SZ',	 '600740.SH',	 '600508.SH',	 '000983.SZ',	 '000571.SZ',	
- '600188.SH',	 '600348.SH',	 '900948.SH',	 '600157.SH',	 '600792.SH',	 '600121.SH',	 
- '601088.SH',	 '601898.SH']#这是删掉2007-2015年有缺失数据的公司之后的股票，共31支 再删掉缺失固定资产和在建工程的三只，共28只
+ '600188.SH',	 '600348.SH',	 '900948.SH',	 '600157.SH',	 '600121.SH',	 '601088.SH',	 '601898.SH']#这是删掉2007-2015年有缺失数据的公司之后的股票，共31支 再删掉缺失固定资产和在建工程的三只，共28只
 
-
-indicator_list = ['销售毛利率(%)','销售费用率(%)','管理费用率(%)','财务费用率(%)',
-'销售净利率(%)','资产负债率(%)','流动比率','速动比率','应收账款周转率','固定资产周转率','存货周转率','总资产周转率',
-'Z值','带息债务','营运资本','资产总计','负债合计','营业总收入','营业收入','销售费用','管理费用',
-'财务费用','营业总成本','营业成本','经营现金流净额','投资现金流净额','现金及等价物净增加额','净利润',
-'归属母公司股东的净利润','购建固定无形长期资产支付现金','销售商品劳务收到现金','固定资产','在建工程','公司规模'] #去掉了会计年度和利息支出
 
 percent_indicator_list = ['销售毛利率(%)','销售费用率(%)','管理费用率(%)','财务费用率(%)','销售净利率(%)','资产负债率(%)']
-rate_indicator_list = ['流动比率','速动比率','应收账款周转率','固定资产周转率','存货周转率','总资产周转率','Z值']
+rate_indicator_list = ['现金比率','流动比率','速动比率','应收账款周转率','固定资产周转率','存货周转率','总资产周转率','Z值']
 amount_indicator_list =  ['带息债务(亿)','营运资本(亿)','资产总计(亿)','负债合计(亿)','营业总收入(亿)','营业收入(亿)','销售费用(亿)','管理费用(亿)',
 '财务费用(亿)','营业总成本(亿)','营业成本(亿)','经营现金流净额(亿)','投资现金流净额(亿)','现金及等价物净增加额(亿)','净利润(亿)',
 '归属母公司股东的净利润(亿)','购建固定无形长期资产支付现金(亿)','销售商品劳务收到现金(亿)','固定资产(亿)','在建工程(亿)']
+added_indicator_list = ['购固现金流占比(%)', '固定资产在建工程合计(亿)', '固定资产在建工程增量(亿)', '固定资产在建工程增率(%)',
+     '有息债务率(%)', '有息债务增量(亿)', '有息债务增率(%)', '有息债务比总资产(%)'] #自己添加的指标
 
-#indicator_list = percent_indicator_list+rate_indicator_list+amount_indicator_list +['公司规模']
+indicator_list = percent_indicator_list+rate_indicator_list+amount_indicator_list +['公司规模'] + added_indicator_list
 
 #stockDF.columns = ['股票代码','会计年度']+indicator_list #改变column指标名字
 
@@ -103,17 +98,17 @@ stockDF = pd.read_excel("C:/Users/chenchen/Desktop/coalStock_adj2.xls") #把exce
 
 #stockDF['会计年度'] = stockDF['会计年度'].map(lambda x:x.year)#先尝试了一个，时间改成年度，即从datetime类型改成整数类型
 
-#此处是增加固定资产和在建工程指标的，再重新存储下
-# w.start()
-# all_origin_data = []
-# for stock in stock_list:
-# 	for i in range(2007,2016):
-# 		td = w.wss(stock, "const_in_prog","rptDate=%s1231;rptType=1"%i).Data #fix_assets
-# 		all_origin_data.append(td[0][0])
-# stockDF['在建工程'] = all_origin_data #固定资产
-# w.stop()
+#此处是增加新的指标的，再重新存储下
+w.start()
+all_origin_data = []
+for stock in stock_list:
+	for i in range(2007,2016):
+		td = w.wss(stock, "cashtocurrentdebt","rptDate=%s1231;rptType=1"%i).Data #fix_assets
+		all_origin_data.append(td[0][0])
+stockDF['现金比率'] = all_origin_data #固定资产
+w.stop()
 
-# stockDF.to_excel("C:/Users/chenchen/Desktop/coalStock_adj.xls")
+stockDF.to_excel("C:/Users/chenchen/Desktop/coalStock_adj2.xls")
 
 
 date_list = []
@@ -130,7 +125,7 @@ cost_indicator_list = ['销售毛利率','销售费用/营业总收入','管理�
 # 		single_stock_DF = stockDF[stockDF['股票代码'] == stock]
 # 		if single_stock_DF.isnull().any().any() == True: #此处也可以考虑用groupby筛选
 # 			nan_stock_list.append(stock)
-nan_stock_list = ['600403.SH', '000552.SZ', '000723.SZ'] #固定资产、在建工程项没有的
+nan_stock_list = ['600792.SH','600403.SH', '000552.SZ', '000723.SZ'] #固定资产、在建工程项没有的
 
 stock_list = [x for x in stock_list if x not in nan_stock_list] #最终无空值的票的list
 
@@ -195,8 +190,8 @@ for i,indicator in enumerate(cost_indicator_list):
 #3. 下面针对所有的指标。每个指标生成一个提琴图并保存
 stockDF['会计年度'] = stockDF['会计年度'].map(lambda x:x.year)#先尝试了一个，时间改成年度
 
-t_indicator_list = ['固定资产'] #购固现金流占比']
-for i,indicator in enumerate(percent_indicator_list):
+t_indicator_list = ['现金比率']
+for i,indicator in enumerate(t_indicator_list):
 	fig = figure()
 	ax = fig.add_subplot(111)
 	
@@ -212,7 +207,7 @@ for i,indicator in enumerate(percent_indicator_list):
 	# ax.set_xlabel(r"") #尝试学习如何调整图与画图区域之间的空隙距离大小
 	# ax.set_title(indicator,fontsize = 15, color = "b") #注意，有些字体并不是所有字号都能用，比如雅黑就不能用10，多试几次
 
-	pic_name = "C:/Users/chenchen/Desktop/ViolinGraphs/Percent/%s.png"%indicator
+	pic_name = "C:/Users/chenchen/Desktop/ViolinGraphs/Rate/%s.png"%indicator
 	fig.savefig(pic_name)
 
 #画图之后看一看如果有极端异常点，找出异常点是哪家公司
@@ -234,26 +229,51 @@ stockDF['净利相对两年平均增幅'] = (stockDF['净利润']-stockDF['过�
 
 
 
+#画增率这些图的时候，会把前几年给剔除掉
+
+tmp_stockDF = stockDF[stockDF['会计年度'] != 2007]
 fig = figure()#此处专门画一下有息债务增率，首先剔除2007年，其次把为Nan和inf(从0增长的)都剔除掉
 ax = fig.add_subplot(111)
 
-indicator = '净利相对两年平均增幅'
-tmp_data = stockDF[(stockDF['会计年度'] != 2007) & (stockDF['会计年度'] != 2008)& (stockDF['股票代码'] == '601918.SH')][indicator]	
-gt = ax.plot(list(tmp_data),color = 'r',label ='国投新集')
-ax.legend(loc=1)
-sns.violinplot(x = '会计年度', y = indicator, data = stockDF[(stockDF['会计年度'] != 2007) & (stockDF['会计年度'] != 2008) & (np.isnan(stockDF[indicator]) == False) & (np.isinf(stockDF[indicator]) == False)],cut = 0, inner="quartile")
+indicator = '固定资产在建工程增率(%)'
+tmp_data = tmp_stockDF[tmp_stockDF['股票代码'] == '601918.SH'][indicator]	
+gt = ax.plot(list(tmp_data),'ro-',label ='国投新集')
+
+sns.violinplot(x = '会计年度', y = indicator, hue = '公司规模', data = tmp_stockDF,cut = 0, inner="quartile",split=True)
+ax.legend(loc='best',ncol = 3)
+
+
+
+#对于有空值或者inf的那些数据，需要剔除掉（比如有息债务增率）
+tmp_stockDF = stockDF[stockDF['会计年度'] != 2007][['股票代码','会计年度','有息债务增率(%)','公司规模']]
+tmp_nan_stock_list = ['601101.SH'] #把那些有空值的票给剃掉，极端点先放进去
+
+for stock in stock_list:		
+		single_stock_DF = tmp_stockDF[tmp_stockDF['股票代码'] == stock]
+		if single_stock_DF.isnull().any().any() == True: #此处也可以考虑用groupby筛选
+			tmp_nan_stock_list.append(stock)
+
+tmp_stock_list = [x for x in stock_list if x not in tmp_nan_stock_list] #最终无空值的票的list
+
+tmp_stockDF = tmp_stockDF[tmp_stockDF['股票代码'].isin(tmp_stock_list)] 
+
+fig = figure()#此处专门画一下有息债务增率，首先剔除2007年，其次把为Nan和inf(从0增长的)都剔除掉
+ax = fig.add_subplot(111)
+
+indicator = '有息债务增率(%)'
+tmp_data = tmp_stockDF[tmp_stockDF['股票代码'] == '601918.SH'][indicator]	
+gt = ax.plot(list(tmp_data),'ro-',label ='国投新集')
+
+sns.violinplot(x = '会计年度', y = indicator, hue = '公司规模', data = tmp_stockDF,cut = 0, inner="quartile",split=True)
+ax.legend(loc='best',ncol = 3)
 
 
 #按主营业务收入区分公司规模，大公司标记1，小公司标记0(直接改为D大公司小公司)
-
-
 rev_mean_2012 = stockDF[stockDF['会计年度'] == 2012]['营业总收入'].mean()
 
 t3 = stockDF[(stockDF['会计年度'] == 2012) & (stockDF['营业总收入'] > rev_mean_2012)]['股票代码']
 t4 = t3.drop_duplicates()
-big_list = [x for x in t4]
-
-#big_list = ['601088.SH','600546.SH','601898.SH','600348.SH','600188.SH','601225.SH','000983.SZ','000937.SZ'] #这是按2012年超过行业营业收入均值来排
+big_list = [x for x in t4]#big_list = ['601088.SH','600546.SH','601898.SH','600348.SH','600188.SH','601225.SH','000983.SZ','000937.SZ'] #这是按2012年超过行业营业收入均值来排
 
 stockDF['公司规模'] = ['小公司' for i in range(279)]
 
