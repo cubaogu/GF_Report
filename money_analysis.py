@@ -26,18 +26,18 @@ moneyDF.drop(7657,inplace=True)
 
 #统计不同回购期限出现的频次
 t8 = moneyDF.groupby('证券名称')
-t8.委托方向.count() # t8.委托方向.count().plot()
+t8['券面总额(万元)'].count() # t8.委托方向.count().plot()
 
-t9 = t8.委托方向.count()
+t9 = t8['券面总额(万元)'].count()
 t9.sort(ascending=False)
 
-repotype_list = t9.index.values[0:5]#取最多次数出现的回购期限
+repotype_list = t9.index.values[0:3]#取成交次数前3多的期限(001,007,014)
 
 #统计不同交易对手出现的频次
 t8 = moneyDF.groupby('交易对手')
-t8.委托方向.count() # t8.委托方向.count().plot()
+t8['券面总额(万元)'].count() # t8.委托方向.count().plot()
 
-t9 = t8.委托方向.count()
+t9 = t8['券面总额(万元)'].count()
 t9.sort(ascending=False)
 
 counterparty_count_list = t9.index.values[0:10] #取最多次数出现的交易对手
@@ -57,10 +57,58 @@ unique_c = [x for x in c1 if x not in c2] #结果这是一个空集，说明完�
 
 #按照交易对手和回购期限分组，画堆积条形图(纵坐标分别是交易的次数和交易的总金额)
 t5 = moneyDF[(moneyDF['交易对手'].isin(counterparty_sum_list)) & (moneyDF['证券名称'].isin(repotype_list))].groupby(['交易对手','证券名称'])
-t6 = t5['券面总额(万元)'].count() #.sum()
+t6 = t5['券面总额(万元)'].sum() #.sum()
 
-t6.unstack().plot(kind = 'bar',stacked = True) #可以尝试在按照交易对手是银行/基金这些类别作个统计  【还有"交易方向" "交易金额"】
-plt.ylabel('交易笔数') #'交易总额(万元)'
+t7 = t6.unstack()
+t7['sum'] = t7.sum(1)
+t7.sort(['sum'],ascending= False,inplace=True)
+del (t7['sum'])
+
+t7.plot(kind = 'bar',stacked = True) #可以尝试在按照交易对手是银行/基金这些类别作个统计  【还有"交易方向" "交易金额"】
+plt.ylabel('交易总额(万元)') #'交易总额(万元)'
+
+
+#对重要交易对手的笔数和金额数据单独拎出来
+important_partners = ["105204-邮储银行","105911-工商银行","101626-华夏银行","105947-北京银行","104099-包商银行","102851-成都农商银行"]
+important_partners_names = [x.split('-')[1] for x in important_partners]
+
+
+important_counts = [1126,311,235,580,1230,596]
+important_amounts = [6325.47,4120.36,3780.61,3230.55,1054.80,1060.43]
+important_avgs = [important_amounts[i]/important_counts[i] for i in range(6)]
+
+impDF = moneyDF[moneyDF['交易对手'].isin(important_partners)]
+
+impDF['交易对手'] = impDF['交易对手'].map(lambda x: x.split('-')[1])
+
+
+impDF['券面总额(亿)'] = impDF['券面总额(万元)']/10**4
+
+#重要对手气泡图
+fig = figure()
+ax = fig.add_subplot(111)
+plt.ylim(0,1500)
+
+	
+ax.scatter(list(range(0,6)),important_counts,s=important_amounts*10**4)
+
+for a,b,c in zip(list(range(0,6)),important_counts,important_amounts):
+		plt.text(a, b+200, '%.0f' % c + '亿', ha='center', va= 'bottom',fontsize=15)
+
+plt.ylabel("交易笔数和总额")
+plt.xticks(list(range(-1,7)),['']+important_partners_names+[''])
+
+
+#重要对手提琴图
+fig = figure()
+ax = fig.add_subplot(111)
+sns.violinplot(x = '交易对手', y = '券面总额(亿)', data = impDF,order = important_partners_names,cut = 0)
+
+plt.ylabel("单笔交易金额分布和均值")
+for a,b,c in zip(list(range(0,6)),important_avgs,important_avgs): #把均值在提琴图上标注出来
+		plt.text(a+0.3, b+0.05, '%.1f' % c + '亿', ha='center', va= 'bottom',fontsize=15,color = 'b')
+
+
 
 
 
@@ -124,19 +172,22 @@ change_tr_date = lambda x : dt.datetime.strptime(str(x), "%Y%m%d")
 
 t5['新日期'] = t5['成交日期'].map(change_tr_date)
 
+fig = figure(figsize=(18,9))
+for i,y in enumerate(['R001','R007']):
+	ax = fig.add_subplot(1,2,i+1)
+	plt.ylim(1.8,4.0)
+	#plt.yticks(list(range(1.8,4.0,0.2)),[(str(mm)[0]+'.'+str(mm)[1]) for mm in range(18,40,2)])
 
+	ax.set_title('重要交易对手%s平均利率(日)'%y)
+	months = mdates.MonthLocator()
+	ax.xaxis.set_major_locator(months)#设置x轴间隔为月
 
-fig = figure()
-ax = fig.add_subplot(111)
-ax.set_title('R001平均利率(日)')
-# months = mdates.MonthLocator()
-# ax.xaxis.set_major_locator(months)#设置x轴间隔为年
+	fmt = mdates.DateFormatter('%b')
+	ax.xaxis.set_major_formatter(fmt)#设置x轴刻度格式
 
-# fmt = mdates.DateFormatter('%m')
-# ax.xaxis.set_major_formatter(fmt)#设置x轴刻度格式
+	for x in important_partners:
+		t10 = t5[(t5['交易对手'] == x) & (t5['证券名称'] == y)]
+		ax.plot(t10['新日期'],t10['加权利率'],label = x.split('-')[1] )
+		ax.legend(ncol =3)
 
-for x in counterparty_sum_list:
-	t10 = t5[(t5['交易对手'] == x) & (t5['证券名称'] == 'R001')]
-	ax.plot(t10['新日期'],t10['加权利率'],label = x.split('-')[1] )
-	ax.legend(ncol =4)
-	
+	#plt.xticks(list(range(0,9)),[str(x+1)+'月' for x in range(9)])
