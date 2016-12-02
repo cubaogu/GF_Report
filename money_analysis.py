@@ -19,10 +19,10 @@ sns.set_context("talk")#这一部分是为了保证在画图时正常显示中�
 import re
 zhPattern = re.compile(u'[\u4e00-\u9fa5]+') #用来判断一段文本中是否包含简体中文的pattern
 
-moneyDF = pd.read_excel("C:/Users/chenchen/Desktop/AtWork/TradeAnalysis/money16.xlsx") #把excel中的数据再读出来
+moneyDF = pd.read_excel("C:/Users/chenchen/Desktop/AtWork/TradeAnalysis/money15.xls") #把excel中的数据再读出来
 
 moneyDF.drop(0,inplace=True) #删掉首尾两行
-moneyDF.drop(7657,inplace=True)
+moneyDF.drop(8326,inplace=True)
 
 #统计不同回购期限出现的频次
 t8 = moneyDF.groupby('证券名称')
@@ -32,6 +32,7 @@ t9 = t8['券面总额(万元)'].count()
 t9.sort(ascending=False)
 
 repotype_list = t9.index.values[0:3]#取成交次数前3多的期限(001,007,014)
+repotype_list = ['R001','R007','R014']
 
 #统计不同交易对手出现的频次
 t8 = moneyDF.groupby('交易对手')
@@ -51,9 +52,9 @@ t9.sort(ascending=False)
 counterparty_sum_list = t9.index.values[0:10] #取最多交易金额的交易对手
 
 #找按交易额和交易笔数前十大交易对手排序中的不同的
-c1 = tmp_count.index.tolist()
-c2 = tmp_sum.index.tolist()
-unique_c = [x for x in c1 if x not in c2] #结果这是一个空集，说明完全重合
+# c1 = tmp_count.index.tolist()
+# c2 = tmp_sum.index.tolist()
+# unique_c = [x for x in c1 if x not in c2] #结果这是一个空集，说明完全重合
 
 #按照交易对手和回购期限分组，画堆积条形图(纵坐标分别是交易的次数和交易的总金额)
 t5 = moneyDF[(moneyDF['交易对手'].isin(counterparty_sum_list)) & (moneyDF['证券名称'].isin(repotype_list))].groupby(['交易对手','证券名称'])
@@ -69,12 +70,12 @@ plt.ylabel('交易总额(万元)') #'交易总额(万元)'
 
 
 #对重要交易对手的笔数和金额数据单独拎出来
-important_partners = ["105204-邮储银行","105911-工商银行","101626-华夏银行","105947-北京银行","104099-包商银行","102851-成都农商银行"]
+important_partners = ["105911-工商银行","104714-光大银行","105947-北京银行","105204-邮储银行","104099-包商银行","102851-成都农商银行"]
 important_partners_names = [x.split('-')[1] for x in important_partners]
 
 
-important_counts = [1126,311,235,580,1230,596]
-important_amounts = [6325.47,4120.36,3780.61,3230.55,1054.80,1060.43]
+important_counts = [334,421,615,512,922,732]
+important_amounts = [3734.27,3462.68,3146.39,3014.94,893.98,1721.08]
 important_avgs = [important_amounts[i]/important_counts[i] for i in range(6)]
 
 impDF = moneyDF[moneyDF['交易对手'].isin(important_partners)]
@@ -87,13 +88,13 @@ impDF['券面总额(亿)'] = impDF['券面总额(万元)']/10**4
 #重要对手气泡图
 fig = figure()
 ax = fig.add_subplot(111)
-plt.ylim(0,1500)
+plt.ylim(0,1200)
 
 	
 ax.scatter(list(range(0,6)),important_counts,s=important_amounts*10**4)
 
 for a,b,c in zip(list(range(0,6)),important_counts,important_amounts):
-		plt.text(a, b+200, '%.0f' % c + '亿', ha='center', va= 'bottom',fontsize=15)
+		plt.text(a, b+100, '%.0f' % c + '亿', ha='center', va= 'bottom',fontsize=15)
 
 plt.ylabel("交易笔数和总额")
 plt.xticks(list(range(-1,7)),['']+important_partners_names+[''])
@@ -104,9 +105,13 @@ fig = figure()
 ax = fig.add_subplot(111)
 sns.violinplot(x = '交易对手', y = '券面总额(亿)', data = impDF,order = important_partners_names,cut = 0)
 
+ax.plot([3.93 for x in range(6)],'r',label= '所有交易笔均交易额3.93亿') #画出一条代表所有机构笔均交易金额的水平横线
+ax.legend()
+
+
 plt.ylabel("单笔交易金额分布和均值")
-for a,b,c in zip(list(range(0,6)),important_avgs,important_avgs): #把均值在提琴图上标注出来
-		plt.text(a+0.3, b+0.05, '%.1f' % c + '亿', ha='center', va= 'bottom',fontsize=15,color = 'b')
+for a,b,c in zip(list(range(6)),important_avgs,important_avgs): #把均值在提琴图上标注出来
+		plt.text(a+0.3, b+0.05, '%.2f' % c + '亿', ha='center', va= 'bottom',fontsize=15,color = 'b')
 
 
 
@@ -170,12 +175,27 @@ t5.columns = ['交易对手','证券名称','成交日期','加权利率'] # t5�
 
 change_tr_date = lambda x : dt.datetime.strptime(str(x), "%Y%m%d")
 
-t5['新日期'] = t5['成交日期'].map(change_tr_date)
+t5['新日期'] = t5['成交日期'].map(change_tr_date)#日期换成datetime的格式
+
+#下面算一下每天每种期限的价格作为画图时候的参考标准线
+t11 = moneyDF.groupby(['证券名称','成交日期'])
+t12 = t11['券面总额(万元)']
+t13 = t11['日利息']
+
+t14 = t13.sum()/t12.sum()
+
+t15 = list(t14.index)
+t16 = pd.DataFrame(t15)
+t16['加权利率'] = list(t14.values)
+t16.columns = ['证券名称','成交日期','加权利率'] 
+
+t16['新日期'] = t16['成交日期'].map(change_tr_date)
+
 
 fig = figure(figsize=(18,9))
-for i,y in enumerate(['R001','R007']):
+for i,y in enumerate(['R001']):#,'R007']):
 	ax = fig.add_subplot(1,2,i+1)
-	plt.ylim(1.8,4.0)
+	plt.ylim(0.5+i,5.5+i)
 	#plt.yticks(list(range(1.8,4.0,0.2)),[(str(mm)[0]+'.'+str(mm)[1]) for mm in range(18,40,2)])
 
 	ax.set_title('重要交易对手%s平均利率(日)'%y)
@@ -185,9 +205,26 @@ for i,y in enumerate(['R001','R007']):
 	fmt = mdates.DateFormatter('%b')
 	ax.xaxis.set_major_formatter(fmt)#设置x轴刻度格式
 
-	for x in important_partners:
+	t17 = t16[t16['证券名称'] == y] #先画平均值的参考线
+	ax.plot(t17['新日期'],t17['加权利率'],color="#000000",linestyle='-.',label='当日所有成交平均',linewidth=3)
+
+	for x in important_partners: 
 		t10 = t5[(t5['交易对手'] == x) & (t5['证券名称'] == y)]
 		ax.plot(t10['新日期'],t10['加权利率'],label = x.split('-')[1] )
 		ax.legend(ncol =3)
 
 	#plt.xticks(list(range(0,9)),[str(x+1)+'月' for x in range(9)])
+
+#算一下年度的均值和标准差
+int_mean = []
+int_std= []
+for x in important_partners: 
+		t10 = t5[(t5['交易对手'] == x) & (t5['证券名称'] == 'R001')]
+		int_mean.append(t10['加权利率'].mean())
+		int_std.append(t10['加权利率'].std())
+
+t17 = t16[t16['证券名称'] == 'R001']
+t17['加权利率'].mean()
+t17['加权利率'].std()
+
+#画每天的

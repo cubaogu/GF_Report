@@ -42,7 +42,7 @@ t9 = t8.groupby('成交日期')
 t10 = t9['仓位变化'].sum()
 sns.barplot(t10.index,t10.values)
 t11 = t9['收益率仓位加权'].sum()/t9['仓位变化'].sum()
-sns.plt(t11.values)
+#sns.plt(t11.values)
 
 blank = t10.cumsum().shift(1).fillna(0)
 step = blank.reset_index(drop=True).repeat(3).shift(-1)
@@ -56,6 +56,10 @@ ax1 = fig.add_subplot(111)
 my_plot = t10.plot(kind='bar', stacked=True, bottom=blank,legend=None, title="150210 各点位持仓变化瀑布图")
 my_plot.plot(step.index, step.values,'k')
 ax1.legend(loc = 'upper left')
+
+for a,b,c in zip(list(range(18)),list(t10.values),list(t10.values)):#画仓位变动量标签,此处需更改
+	plt.text(a, b+1000, ('%.1f' % (float(c)/10000 ))+ '亿', ha='center', va= 'bottom',fontsize=15)
+
 
 t11 = t9['收益率仓位加权'].sum()/t9['仓位变化'].sum()
 ax2=ax1.twinx() #双轴，右轴表示利率
