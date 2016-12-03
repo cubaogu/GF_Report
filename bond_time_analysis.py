@@ -15,7 +15,24 @@ import math
 mpl.rcParams['font.sans-serif'] = ['Microsoft YaHei']
 sns.set_context("talk")#这一部分是为了保证在画图时正常显示中文
 
-aDF = pd.read_excel("C:/Users/chenchen/Desktop/AtWork/TradeAnalysis/Bond2015/15A.xlsx")
+
+#来对Bond2015中的初步数据做一些清洗工作
+for x in ['A','B','C']:
+	origingDF = pd.read_excel("C:/Users/chenchen/Desktop/AtWork/TradeAnalysis/Bond2015/15%s_adj.xlsx"%x)
+	origingDF['dir'] = origingDF['direc'].map(lambda x: 1 if x == '3-债券买入' else -1)
+	origingDF['ct'] = origingDF['ct'].map(lambda x: 1 if x == '是' else 0)
+	origingDF['duration'] = origingDF['dur']
+	origingDF.loc[origingDF['opt_dur'] == 0,'duration'] = origingDF[origingDF['opt_dur'] == 0]['dur']
+
+	washedDF = origingDF.drop(['direc','dur','opt_dur'],axis =1)
+	washedDF.to_excel("C:/Users/chenchen/Desktop/AtWork/TradeAnalysis/Bond2015/Washed/15%s_washed.xlsx"%x)
+
+
+#清洗后的数据放在Washed文件夹里
+
+
+
+aDF = pd.read_excel("C:/Users/chenchen/Desktop/AtWork/TradeAnalysis/Bond2015/15A_adj.xlsx")
 bDF = pd.read_excel("C:/Users/chenchen/Desktop/AtWork/TradeAnalysis/Bond2015/15B.xlsx")
 cDF = pd.read_excel("C:/Users/chenchen/Desktop/AtWork/TradeAnalysis/Bond2015/15C.xlsx")
 
