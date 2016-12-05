@@ -6,7 +6,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.pyplot import figure, draw
 import matplotlib.dates as mdates
-from matplotlib.dates import DateFormatter, WeekdayLocator, DayLocator, MONDAY,YEARLY
+from matplotlib.dates import DateFormatter, WeekdayLocator, Dayator, MONDAY,YEARLY
 
 import datetime as dt
 from WindPy import *
@@ -18,13 +18,15 @@ sns.set_context("talk")#这一部分是为了保证在画图时正常显示中�
 
 #来对Bond2015中的初步数据做一些清洗工作
 for x in ['A','B','C']:
-	origingDF = pd.read_excel("C:/Users/chenchen/Desktop/AtWork/TradeAnalysis/Bond2015/15%s_adj.xlsx"%x)
-	origingDF['dir'] = origingDF['direc'].map(lambda x: 1 if x == '3-债券买入' else -1)
-	origingDF['ct'] = origingDF['ct'].map(lambda x: 1 if x == '是' else 0)
-	origingDF['duration'] = origingDF['dur']
-	origingDF.loc[origingDF['opt_dur'] == 0,'duration'] = origingDF[origingDF['opt_dur'] == 0]['dur']
+	origingDF = pd.read_excel("C:/Users/chenchen/Desktop/AtWork/TradeAnalysis/Bond2015/Washed/15%s_washed.xlsx"%x)
+	origingDF['dir'] = origingDF['direc'].map(lambda x: 1 if x == 3 else -1)
+	# origingDF['ct'] = origingDF['ct'].map(lambda x: 1 if x == '是' else 0)
+	# origingDF['duration'] = origingDF['dur']
+	# origingDF.
+[origingDF['opt_dur'] == 0,'duration'] = origingDF[origingDF['opt_dur'] == 0]['dur']
 
-	washedDF = origingDF.drop(['direc','dur','opt_dur'],axis =1)
+	# washedDF = origingDF.drop(['direc','dur','opt_dur'],axis =1)
+	washedDF = origingDF.drop(['direc'],axis =1)
 	washedDF.to_excel("C:/Users/chenchen/Desktop/AtWork/TradeAnalysis/Bond2015/Washed/15%s_washed.xlsx"%x)
 
 
@@ -32,33 +34,138 @@ for x in ['A','B','C']:
 
 
 
-aDF = pd.read_excel("C:/Users/chenchen/Desktop/AtWork/TradeAnalysis/Bond2015/15A_adj.xlsx")
-bDF = pd.read_excel("C:/Users/chenchen/Desktop/AtWork/TradeAnalysis/Bond2015/15B.xlsx")
-cDF = pd.read_excel("C:/Users/chenchen/Desktop/AtWork/TradeAnalysis/Bond2015/15C.xlsx")
+aDF = pd.read_excel("C:/Users/chenchen/Desktop/AtWork/TradeAnalysis/Bond2015/Washed/15A_washed.xlsx")
+bDF = pd.read_excel("C:/Users/chenchen/Desktop/AtWork/TradeAnalysis/Bond2015/Washed/15B_washed.xlsx")
+cDF = pd.read_excel("C:/Users/chenchen/Desktop/AtWork/TradeAnalysis/Bond2015/Washed/15C_washed.xlsx")
 
 
-t1 = aDF['证券名称'].drop_duplicates()
-t2 = bDF['证券名称'].drop_duplicates()
-t3 = [x for x in t1 if x in t2]
+t1 = aDF['name'].drop_duplicates()
+t2 = bDF['name'].drop_duplicates()
+t3 = cDF['name'].drop_duplicates()
 
-t4 = aDF[aDF['证券名称'].duplicated()]['证券名称'].drop_duplicates()
+t3 = [x for x in t1 if x in t2] #检查ABC里面是否有重叠的
 
-t5 = aDF.groupby('证券名称')['券面总额(万元)'].count()
-t5.sort()
+#下面这一部分来增加辅助行
+w.start()
+for x in ['A','B','C']:
+	aDF = pd.read_excel("C:/Users/chenchen/Desktop/AtWork/TradeAnalysis/Bond2015/Washed/15%s_washed.xlsx"%x)
+	#t4 = aDF[aDF['name'].duplicated()]['name'].drop_duplicates()
+	aDF['d_position'] = aDF['dir']*aDF['amount'] 
+	aDF['AI'] = 0.000
+	aDF['help_line'] = 0
+	for i in aDF.index:
+		tmp_data = w.wss(aDF.iat[i,1], "accruedinterest","tradeDate=%s;credibility=1"%(str(aDF.iat[i,0]))).Data
+		aDF.iat[i,13] = tmp_data[0][0]
+				
+	t5 = aDF.groupby('code')['d_position'].sum()
+	t5.sort(ascending=False)
 
-aDF['方向'] = aDF['委托方向'].map(lambda x: 1 if x == '3-债券买入' else -1)
-aDF['仓位变化'] = aDF['方向']*aDF['券面总额(万元)'] 
+	ct_func = lambda x: 1 if x =='是' else 0
 
-t7 = aDF.groupby('证券名称')['仓位变化'].sum() #券面总额(万元)
-t7.sort()
+	for i,x in enumerate(t5.index):
+		tmp_amount = int(t5[i])
+		if tmp_amount < 0:
+			tmp_data = w.wss(x, "yield_cnbd,net_cnbd,accruedinterest,municipalbond,windl1type,sec_name,ptmyear,creditrating","tradeDate=20141231;credibility=1").Data
+			ct_sign = ct_func(tmp_data[3][0])
+			ddd=pd.Series(['20141231',x,tmp_data[5][0],tmp_data[0][0],tmp_data[1][0],-tmp_amount,tmp_data[4][0],tmp_data[6][0],ct_sign,tmp_data[7][0],0,1,-tmp_amount,tmp_data[2][0],1],index = aDF.columns)
+			aDF = aDF.append(ddd,ignore_index=True)
+		elif tmp_amount > 0 : 
+			tmp_data = w.wss(x, "yield_cnbd,net_cnbd,accruedinterest,municipalbond,windl1type,sec_name,ptmyear,creditrating","tradeDate=20151231;credibility=1").Data
+			ct_sign = ct_func(tmp_data[3][0])
+			ddd=pd.Series(['20151231',x,tmp_data[5][0],tmp_data[0][0],tmp_data[1][0],tmp_amount,tmp_data[4][0],tmp_data[6][0],ct_sign,tmp_data[7][0],0,-1,-tmp_amount,tmp_data[2][0],1],index = aDF.columns)
+			aDF = aDF.append(ddd,ignore_index=True)
 
-t8 = aDF[aDF['证券名称'] == '15国开10']
-t8['收益率仓位加权'] = t8['收益率（%）']*t8['仓位变化']
+	aDF.to_excel("C:/Users/chenchen/Desktop/AtWork/TradeAnalysis/Bond2015/Washed/15%s_washed.xlsx"%x)
+	#t4 = aDF[aDF['name'].duplicated()]['name'].drop_duplicates()
+w.stop()
 
-t9 = t8.groupby('成交日期')
-t10 = t9['仓位变化'].sum()
+
+#下面开始按规定分类了
+aDF = pd.read_excel("C:/Users/chenchen/Desktop/AtWork/TradeAnalysis/Bond2015/Washed/15A_washed.xlsx")
+
+dDF = aDF #之前配平搞错了，下面重新配平
+
+dDF.loc[(dDF['help_line'] == 1)&(dDF['dir'] == -1),'d_position'] = -dDF.loc[(dDF['help_line'] == 1)&(dDF['dir'] == -1),'d_position']
+
+aDF =dDF
+# t5 = aDF.groupby('code')['d_position'].sum()
+# t5.sort(ascending=False)
+
+aDF['full_price'] = aDF['AI'] + aDF['cleanP']
+aDF['TrueCash'] = aDF['full_price']*aDF['d_position']/100
+
+
+#三类dict
+int_standard_dic_1 = {"国债":(9,10.1),"金融债":(9,10.1),"政府支持机构债":(9,10.1)}
+
+int_standard_dic_2 = {"国债":(4,5.1),"金融债":(4,5.1),"政府支持机构债":(4,5.1)}
+
+type_standard_dic = {"中期票据":(4,5.1),"企业债":(6,7.1)} #"短期融资券":[0,1.1],
+
+#t6 = aDF.groupby('code').max()
+
+#下面开始输出
+for type_key,type_value in int_standard_dic_2.items():
+	print(len(aDF[(aDF['type'] == type_key) & (aDF['term']>type_value[0]) & (aDF['term']<type_value[1])]['code'].drop_duplicates()))	
+	tmp_qualified_code_list = list(aDF[(aDF['type'] == type_key) & (aDF['term']>type_value[0]) & (aDF['term']<type_value[1])]['code'].drop_duplicates())
+	tmp_qualified_code_DF = aDF[aDF['code'].isin(tmp_qualified_code_list)]
+	print(tmp_qualified_code_DF[(tmp_qualified_code_DF['help_line'] == 0)&(tmp_qualified_code_DF['dir'] == 1)]['d_position'].count())
+	print(tmp_qualified_code_DF[(tmp_qualified_code_DF['help_line'] == 0)&(tmp_qualified_code_DF['dir'] == 1)]['d_position'].sum())
+	print(tmp_qualified_code_DF[(tmp_qualified_code_DF['help_line'] == 0)&(tmp_qualified_code_DF['dir'] == -1)]['d_position'].count())
+	print(tmp_qualified_code_DF[(tmp_qualified_code_DF['help_line'] == 0)&(tmp_qualified_code_DF['dir'] == -1)]['d_position'].sum())
+
+	print(type_key,tmp_qualified_code_DF['TrueCash'].sum())
+
+
+
+
+
+#把三个sheet给拼接一下
+allDF = pd.concat([aDF,bDF,cDF])
+
+allDF['d_position'] = allDF['dir']*allDF['amount'] 
+allDF['dur_weighted_pos'] = allDF['duration']*allDF['d_position']
+allDF['dur_weighted_pos_ytm'] = allDF['YTM']*allDF['dur_weighted_pos']
+
+#分一下阶段
+periods_list = [[20150101,20150225],[20150225,20150408],[20150408,20150514],[20150514,20150528],[20150528,20151231]]
+
+trading_period = []
+
+def get_period(x):
+	tmp_period = 0
+	for i,period in enumerate(periods_list):
+		if (x <= period[1] and  x > period[0]):
+			tmp_period = i
+			break
+	return tmp_period
+
+allDF['period'] = allDF['date'].map(get_period) #period记录交易的阶段
+
+
+
+t7 = allDF.groupby(['period','type'])['d_position'].sum() #amount
+#t7.sort(ascending=False)
+t8 = allDF.groupby(['period','type'])['dur_weighted_pos_ytm'].sum()/allDF.groupby(['period','type'])['dur_weighted_pos'].sum() #平均建仓YTM
+t9 = allDF.groupby(['period','type'])['dur_weighted_pos'].sum()/allDF.groupby(['period','type'])['d_position'].sum() #平均建仓久期
+
+
+tmpDF = allDF[(allDF['type'] == '企业债') & (allDF['ct'] == 1) & (allDF['term']>6) & (allDF['rating'] == 'AA')]
+
+t7 = tmpDF.groupby('period')['d_position'].sum() #amount
+#t7.sort(ascending=False)
+t8 = tmpDF.groupby('period')['dur_weighted_pos_ytm'].sum()/tmpDF.groupby('period')['dur_weighted_pos'].sum() #平均建仓YTM
+t9 = tmpDF.groupby('period')['dur_weighted_pos'].sum()/tmpDF.groupby('period')['d_position'].sum() #平均建仓久期
+
+tmpDF[(tmpDF['period'] == 4) & (tmpDF['dir'] == 1)][['YTM','period','amount']].sum()
+tmpDF[(tmpDF['period'] == 4) & (tmpDF['dir'] == -1)][['YTM','period','amount']].mean() #取其中一类出来看看
+
+
+
+
+
+
 sns.barplot(t10.index,t10.values)
-t11 = t9['收益率仓位加权'].sum()/t9['仓位变化'].sum()
 #sns.plt(t11.values)
 
 blank = t10.cumsum().shift(1).fillna(0)
