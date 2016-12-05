@@ -6,7 +6,7 @@ import matplotlib as mpl
 import matplotlib.pyplot as plt
 from matplotlib.pyplot import figure, draw
 import matplotlib.dates as mdates
-from matplotlib.dates import DateFormatter, WeekdayLocator, Dayator, MONDAY,YEARLY
+from matplotlib.dates import DateFormatter, WeekdayLocator, DayLocator, MONDAY,YEARLY
 
 import datetime as dt
 from WindPy import *
@@ -47,15 +47,15 @@ t3 = [x for x in t1 if x in t2] #检查ABC里面是否有重叠的
 
 #下面这一部分来增加辅助行
 w.start()
-for x in ['A','B','C']:
-	aDF = pd.read_excel("C:/Users/chenchen/Desktop/AtWork/TradeAnalysis/Bond2015/Washed/15%s_washed.xlsx"%x)
+for xx in ['A','B','C']:
+	aDF = pd.read_excel("C:/Users/chenchen/Desktop/AtWork/TradeAnalysis/Bond2015/Washed/15%s_washed.xlsx"%xx)
 	#t4 = aDF[aDF['name'].duplicated()]['name'].drop_duplicates()
-	aDF['d_position'] = aDF['dir']*aDF['amount'] 
-	aDF['AI'] = 0.000
-	aDF['help_line'] = 0
-	for i in aDF.index:
-		tmp_data = w.wss(aDF.iat[i,1], "accruedinterest","tradeDate=%s;credibility=1"%(str(aDF.iat[i,0]))).Data
-		aDF.iat[i,13] = tmp_data[0][0]
+	# aDF['d_position'] = aDF['dir']*aDF['amount'] 
+	# aDF['AI'] = 0.000
+	# aDF['help_line'] = 0
+	# for i in aDF.index:
+	# 	tmp_data = w.wss(aDF.iat[i,1], "accruedinterest","tradeDate=%s;credibility=1"%(str(aDF.iat[i,0]))).Data
+	# 	aDF.iat[i,13] = tmp_data[0][0]
 				
 	t5 = aDF.groupby('code')['d_position'].sum()
 	t5.sort(ascending=False)
@@ -70,29 +70,44 @@ for x in ['A','B','C']:
 			ddd=pd.Series(['20141231',x,tmp_data[5][0],tmp_data[0][0],tmp_data[1][0],-tmp_amount,tmp_data[4][0],tmp_data[6][0],ct_sign,tmp_data[7][0],0,1,-tmp_amount,tmp_data[2][0],1],index = aDF.columns)
 			aDF = aDF.append(ddd,ignore_index=True)
 		elif tmp_amount > 0 : 
-			tmp_data = w.wss(x, "yield_cnbd,net_cnbd,accruedinterest,municipalbond,windl1type,sec_name,ptmyear,creditrating","tradeDate=20151231;credibility=1").Data
-			ct_sign = ct_func(tmp_data[3][0])
-			ddd=pd.Series(['20151231',x,tmp_data[5][0],tmp_data[0][0],tmp_data[1][0],tmp_amount,tmp_data[4][0],tmp_data[6][0],ct_sign,tmp_data[7][0],0,-1,-tmp_amount,tmp_data[2][0],1],index = aDF.columns)
-			aDF = aDF.append(ddd,ignore_index=True)
+			tmp_data = w.wss(x, "yield_cnbd,net_cnbd,accruedinterest,municipalbond,windl1type,sec_name,ptmyear,creditrating,maturitydate","tradeDate=20151231;credibility=1").Data
+			tmp_mat = int(tmp_data[8][0].strftime("%Y%m%d")) #防止是在2015年底之前到期的，然后还有正持仓的，说明卖出去了
+			if  tmp_mat<= 20151231:
+				tmp_data = w.wss(x, "yield_cnbd,net_cnbd,accruedinterest,municipalbond,windl1type,sec_name,ptmyear,creditrating,maturitydate","tradeDate=%s;credibility=1"%str(tmp_mat-1)).Data
+				ct_sign = ct_func(tmp_data[3][0])
+				ddd=pd.Series([str(tmp_mat),x,tmp_data[5][0],tmp_data[0][0],tmp_data[1][0],tmp_amount,tmp_data[4][0],tmp_data[6][0],ct_sign,tmp_data[7][0],0,-1,-tmp_amount,tmp_data[2][0],1],index = aDF.columns)
+				aDF = aDF.append(ddd,ignore_index=True)
+			else :
+				ct_sign = ct_func(tmp_data[3][0])
+				ddd=pd.Series(['20151231',x,tmp_data[5][0],tmp_data[0][0],tmp_data[1][0],tmp_amount,tmp_data[4][0],tmp_data[6][0],ct_sign,tmp_data[7][0],0,-1,-tmp_amount,tmp_data[2][0],1],index = aDF.columns)
+				aDF = aDF.append(ddd,ignore_index=True)
 
-	aDF.to_excel("C:/Users/chenchen/Desktop/AtWork/TradeAnalysis/Bond2015/Washed/15%s_washed.xlsx"%x)
+	aDF.to_excel("C:/Users/chenchen/Desktop/AtWork/TradeAnalysis/Bond2015/Washed/15%s_washed.xlsx"%xx)
 	#t4 = aDF[aDF['name'].duplicated()]['name'].drop_duplicates()
 w.stop()
 
 
 #下面开始按规定分类了
-aDF = pd.read_excel("C:/Users/chenchen/Desktop/AtWork/TradeAnalysis/Bond2015/Washed/15A_washed.xlsx")
+aDF = pd.read_excel("C:/Users/chenchen/Desktop/AtWork/TradeAnalysis/Bond2015/Washed/15B_washed.xlsx")
 
 dDF = aDF #之前配平搞错了，下面重新配平
 
 dDF.loc[(dDF['help_line'] == 1)&(dDF['dir'] == -1),'d_position'] = -dDF.loc[(dDF['help_line'] == 1)&(dDF['dir'] == -1),'d_position']
 
 aDF =dDF
-# t5 = aDF.groupby('code')['d_position'].sum()
-# t5.sort(ascending=False)
+t5 = aDF.groupby('code')['d_position'].sum()
+t5.sort(ascending=False)
 
 aDF['full_price'] = aDF['AI'] + aDF['cleanP']
 aDF['TrueCash'] = aDF['full_price']*aDF['d_position']/100
+
+#对于整个账户所有券种盈利的一个统计
+print(aDF['code'].drop_duplicates())
+print(aDF[(aDF['help_line'] == 0)&(aDF['dir'] == 1)]['d_position'].count())
+print(aDF[(aDF['help_line'] == 0)&(aDF['dir'] == 1)]['d_position'].sum())
+print(aDF[(aDF['help_line'] == 0)&(aDF['dir'] == -1)]['d_position'].count())
+print(aDF[(aDF['help_line'] == 0)&(aDF['dir'] == -1)]['d_position'].sum())
+print(aDF['TrueCash'].sum())
 
 
 #三类dict
@@ -100,12 +115,12 @@ int_standard_dic_1 = {"国债":(9,10.1),"金融债":(9,10.1),"政府支持机构
 
 int_standard_dic_2 = {"国债":(4,5.1),"金融债":(4,5.1),"政府支持机构债":(4,5.1)}
 
-type_standard_dic = {"中期票据":(4,5.1),"企业债":(6,7.1)} #"短期融资券":[0,1.1],
+type_standard_dic = {"中期票据":(4,5.1),"企业债":(6,7.1),"短期融资券":(0,1.1)}
 
 #t6 = aDF.groupby('code').max()
 
-#下面开始输出
-for type_key,type_value in int_standard_dic_2.items():
+#下面开始各类型的收益输出
+for type_key,type_value in int_standard_dic_1.items():
 	print(len(aDF[(aDF['type'] == type_key) & (aDF['term']>type_value[0]) & (aDF['term']<type_value[1])]['code'].drop_duplicates()))	
 	tmp_qualified_code_list = list(aDF[(aDF['type'] == type_key) & (aDF['term']>type_value[0]) & (aDF['term']<type_value[1])]['code'].drop_duplicates())
 	tmp_qualified_code_DF = aDF[aDF['code'].isin(tmp_qualified_code_list)]
@@ -115,8 +130,6 @@ for type_key,type_value in int_standard_dic_2.items():
 	print(tmp_qualified_code_DF[(tmp_qualified_code_DF['help_line'] == 0)&(tmp_qualified_code_DF['dir'] == -1)]['d_position'].sum())
 
 	print(type_key,tmp_qualified_code_DF['TrueCash'].sum())
-
-
 
 
 
